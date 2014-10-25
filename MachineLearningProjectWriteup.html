@@ -61,11 +61,12 @@ if (window.hljs && document.readyState && document.readyState === "complete") {
 <div id="overview" class="section level2">
 <h2>Overview</h2>
 <p>A group of enthusiasts took measurements about themselves to find patterns in the personal activities that they did. These were measured using accelerometers on the belt, forearm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways.</p>
-<p>The data gathered in the above-mentioned activities, which was also used for this course project came from this source:</p>
+<p>The data gathered in the above-mentioned activities, which was also used for this course project came from <a href="mailto:Groupware@LES">Groupware@LES</a> (<a href="http://groupware.les.inf.puc-rio.br/">http://groupware.les.inf.puc-rio.br/</a>).</p>
+<p><em>Human Activity Recognition</em></p>
 <p><a href="http://groupware.les.inf.puc-rio.br/har">http://groupware.les.inf.puc-rio.br/har</a></p>
-<p><em>Training data:</em></p>
+<p><em>Training data</em></p>
 <p><a href="https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv">https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv</a></p>
-<p><em>Test data:</em></p>
+<p><em>Test data</em></p>
 <p><a href="https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv">https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv</a></p>
 <p>This course project aims to predict the manner in which one performs a particular activity, referred to as the “<strong>classe</strong>” variable in the training set.</p>
 </div>
@@ -78,10 +79,9 @@ if (window.hljs && document.readyState && document.readyState === "complete") {
 <pre class="r"><code>library(randomForest)</code></pre>
 <pre><code>## randomForest 4.6-10
 ## Type rfNews() to see new features/changes/bug fixes.</code></pre>
-<p>The training and testing data were placed in <em>../Data/Training Data</em> and <em>..Data/Testing Data</em> directories under my R project respectively.</p>
+<p>The training and testing data were placed in “<em>../Data/Training Data</em>” and “<em>..Data/Testing Data</em>” directories under my R project respectively.</p>
 <pre class="r"><code>trainingData &lt;- &quot;./Data/Training Data/pml-training.csv&quot;
-testingData &lt;- &quot;./Data/Testing Data/pml-testing.csv&quot;</code></pre>
-<p>The <em>Predictions</em> directory was created to store the prediction file outputs.</p>
+testingData  &lt;- &quot;./Data/Testing Data/pml-testing.csv&quot;</code></pre>
 <p>We load the training and testing data, like as follows:</p>
 <pre class="r"><code>load.data &lt;- function(file) {
     read.csv(file, row.names = 1)
@@ -92,8 +92,8 @@ testing  &lt;- load.data(testingData)</code></pre>
 </div>
 <div id="data-cleaning" class="section level2">
 <h2>Data Cleaning</h2>
-<p>We clean the data by removing near zero covariates and missing values. For this course project, we removed data with more than 80% missing values.</p>
-<pre class="r"><code>remove.zero.covariates &lt;- function(data) {
+<p>We clean the data by removing near zero covariates and missing values. For this course project, we removed data with more than 80% missing values from the training data.</p>
+<pre class="r"><code>remove.nearzero.covariates &lt;- function(data) {
     near.zero &lt;- nearZeroVar(data, saveMetrics = TRUE)
     data[, !near.zero$nzv]
 }
@@ -111,18 +111,26 @@ remove.missing.values &lt;- function(data) {
 }
 
 clean.data &lt;- function(data) {
-    data &lt;- remove.zero.covariates(data)
+    data &lt;- remove.nearzero.covariates(data)
     remove.missing.values(data)
 }
 
-training &lt;- clean.data(training)
-testing  &lt;- clean.data(testing)</code></pre>
+training &lt;- clean.data(training)</code></pre>
 </div>
-<div id="training" class="section level2">
-<h2>Training</h2>
-<p>For this course project, I tried to use <em>Random Forest</em> (i.e., <strong>method=“rf”</strong>), which is the default training method, for model fitting.</p>
-<p>(Notice that the method parameter was no longer explicitly specified in the train function call, since <strong>rf</strong> is already the default method)</p>
-<p>I also set the seed prior to training to make the results reproducible.</p>
+<div id="training-cross-validation" class="section level2">
+<h2>Training &amp; Cross-Validation</h2>
+<p>We perform cross-validation by first, splitting the training data further into train &amp; test subsets.</p>
+<pre class="r"><code>cross.validation &lt;- function(trainingData) {
+    createDataPartition(trainingData$class, p = 0.6, 
+                        list = FALSE)
+}
+
+trainingIndex  &lt;- cross.validation(training)
+training.train &lt;- training[trainingIndex, ]
+training.test  &lt;- training[-trainingIndex, ]</code></pre>
+<p>For this course project, I tried to use <strong>Random Forest</strong> (i.e., <strong>method=“rf”</strong>), which is the default training method, for model fitting.</p>
+<p>(Notice that the method parameter was no longer explicitly specified in the <strong>train</strong> function call, since <strong>rf</strong> is already the default method)</p>
+<p>I also set the <strong>seed</strong> prior to training to make the results reproducible.</p>
 <pre class="r"><code>fit.model &lt;- function(trainingData) {
     set.seed(123)
     train(classe ~ ., data = trainingData, 
@@ -130,15 +138,12 @@ testing  &lt;- clean.data(testing)</code></pre>
           trControl = trainControl(method=&quot;oob&quot;))
 }
 
-modelFit    &lt;- fit.model(training)</code></pre>
-</div>
-<div id="measure-methods-prediction-error-accuracy" class="section level2">
-<h2>Measure Method’s Prediction Error (Accuracy)</h2>
+training.train.modelFit &lt;- fit.model(training.train)</code></pre>
 <p>Let’s check the accuracy of this model.</p>
-<pre class="r"><code>modelFit</code></pre>
+<pre class="r"><code>training.train.modelFit</code></pre>
 <pre><code>## Random Forest 
 ## 
-## 19622 samples
+## 11776 samples
 ##    57 predictor
 ##     5 classes: 'A', 'B', 'C', 'D', 'E' 
 ## 
@@ -150,14 +155,70 @@ modelFit    &lt;- fit.model(training)</code></pre>
 ## Resampling results
 ## 
 ##   Accuracy  Kappa
-##   0.998     0.998
+##   0.997     0.996
 ## 
 ## Tuning parameter 'mtry' was held constant at a value of 3
 ## </code></pre>
-<p>Notice that the Accuracy is quite high. So, let’s use it for prediction.</p>
+<p>Notice that the Accuracy is quite high. Let’s proceed with cross-validating the train &amp; test subsets of the training data.</p>
+<pre class="r"><code>confusionMatrix(predict(training.train.modelFit, newdata = training.test), 
+                factor(training.test$classe))</code></pre>
+<pre><code>## Confusion Matrix and Statistics
+## 
+##           Reference
+## Prediction    A    B    C    D    E
+##          A 2232    8    0    0    0
+##          B    0 1510   12    0    0
+##          C    0    0 1356   10    1
+##          D    0    0    0 1276    2
+##          E    0    0    0    0 1439
+## 
+## Overall Statistics
+##                                           
+##                Accuracy : 0.9958          
+##                  95% CI : (0.9941, 0.9971)
+##     No Information Rate : 0.2845          
+##     P-Value [Acc &gt; NIR] : &lt; 2.2e-16       
+##                                           
+##                   Kappa : 0.9947          
+##  Mcnemar's Test P-Value : NA              
+## 
+## Statistics by Class:
+## 
+##                      Class: A Class: B Class: C Class: D Class: E
+## Sensitivity            1.0000   0.9947   0.9912   0.9922   0.9979
+## Specificity            0.9986   0.9981   0.9983   0.9997   1.0000
+## Pos Pred Value         0.9964   0.9921   0.9920   0.9984   1.0000
+## Neg Pred Value         1.0000   0.9987   0.9981   0.9985   0.9995
+## Prevalence             0.2845   0.1935   0.1744   0.1639   0.1838
+## Detection Rate         0.2845   0.1925   0.1728   0.1626   0.1834
+## Detection Prevalence   0.2855   0.1940   0.1742   0.1629   0.1834
+## Balanced Accuracy      0.9993   0.9964   0.9948   0.9960   0.9990</code></pre>
+<p>The Accuracy is relatively high as well. So, let’s use it in predicting the “<strong>classe</strong>” variable for the real testing data, which we haven’t touched yet.</p>
 </div>
-<div id="prediction" class="section level2">
-<h2>Prediction</h2>
+<div id="submission-of-predictions" class="section level2">
+<h2>Submission of Predictions</h2>
+<p>The <strong>Predictions</strong> directory was created to store the prediction file outputs. We use the modelFit created above to predict the “<strong>classe</strong>” variable in our testing data. The prediction file outputs were written as follows:</p>
+<pre class="r"><code>predict.using.data &lt;- function(modelFit, data) {
+    as.character(predict(modelFit, newdata = data))
+}
+
+write.predictions &lt;- function(x) {
+    n &lt;- length(x)
+    for (i in 1:n) {
+        file &lt;- paste0(&quot;./Predictions/problem_id_&quot;, i, &quot;.txt&quot;)
+        write.table(x[i], file = file, 
+                    quote = FALSE, row.names = FALSE,
+                    col.names = FALSE)
+    }
+}
+
+predictions &lt;- predict.using.data(training.train.modelFit, 
+                                  testing)
+write.predictions(predictions)</code></pre>
+</div>
+<div id="conclusion" class="section level2">
+<h2>Conclusion</h2>
+<p><strong>Random Forest</strong> is an effective method for predicting the manner in which one performs a particular activity using accelerometers, such as what were used in the Human Activity Recognition (HAR) project.</p>
 </div>
 
 

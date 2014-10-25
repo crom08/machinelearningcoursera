@@ -6,6 +6,8 @@ output: html_document
 ---
 
 
+
+
 Overview
 -------------------------------------------------------------------------------
 
@@ -19,19 +21,23 @@ barbell lifts correctly and incorrectly in 5 different ways.
 
 
 The data gathered in the above-mentioned activities, which was also used for
-this course project came from this source:
+this course project came from Groupware@LES (http://groupware.les.inf.puc-rio.br/).
+
+
+
+*Human Activity Recognition*
 
 http://groupware.les.inf.puc-rio.br/har
 
 
 
-*Training data:*
+*Training data*
 
 https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
 
 
 
-*Test data:*
+*Test data*
 
 https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
 
@@ -39,6 +45,7 @@ https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
 
 This course project aims to predict the manner in which one performs a particular
 activity, referred to as the "**classe**" variable in the training set.
+
 
 
 
@@ -56,8 +63,8 @@ library(randomForest)
 
 
 
-The training and testing data were placed in *../Data/Training Data* and
-*..Data/Testing Data* directories under my R project respectively.
+The training and testing data were placed in "*../Data/Training Data*" and
+"*..Data/Testing Data*" directories under my R project respectively.
 
 ```{r}
 trainingData <- "./Data/Training Data/pml-training.csv"
@@ -65,8 +72,6 @@ testingData  <- "./Data/Testing Data/pml-testing.csv"
 ```
 
 
-
-The *Predictions* directory was created to store the prediction file outputs.
 
 We load the training and testing data, like as follows:
 
@@ -81,16 +86,18 @@ testing  <- load.data(testingData)
 
 
 
+
 Data Cleaning
 -------------------------------------------------------------------------------
 
 
 
-We clean the data by removing near zero covariates and missing values.  For this
-course project, we removed data with more than 80% missing values.
+We clean the data by removing near zero covariates and missing values. For this
+course project, we removed data with more than 80% missing values from the 
+training data.
 
 ```{r}
-remove.zero.covariates <- function(data) {
+remove.nearzero.covariates <- function(data) {
     near.zero <- nearZeroVar(data, saveMetrics = TRUE)
     data[, !near.zero$nzv]
 }
@@ -108,27 +115,44 @@ remove.missing.values <- function(data) {
 }
 
 clean.data <- function(data) {
-    data <- remove.zero.covariates(data)
+    data <- remove.nearzero.covariates(data)
     remove.missing.values(data)
 }
 
 training <- clean.data(training)
-testing  <- clean.data(testing)
 ```
 
 
-Training
+
+
+Training & Cross-Validation
 --------------------------------------------------------------------------------
 
 
 
-For this course project, I tried to use *Random Forest* (i.e., **method="rf"**), 
+We perform cross-validation by first, splitting the training data further into 
+train & test subsets.
+
+```{r}
+cross.validation <- function(trainingData) {
+    createDataPartition(trainingData$class, p = 0.6, 
+                        list = FALSE)
+}
+
+trainingIndex  <- cross.validation(training)
+training.train <- training[trainingIndex, ]
+training.test  <- training[-trainingIndex, ]
+```
+
+
+
+For this course project, I tried to use **Random Forest** (i.e., **method="rf"**), 
 which is the default training method, for model fitting.
 
 (Notice that the method parameter was no longer explicitly specified in the 
-train function call, since **rf** is already the default method)
+**train** function call, since **rf** is already the default method)
 
-I also set the seed prior to training to make the results reproducible.
+I also set the **seed** prior to training to make the results reproducible.
 
 ```{r}
 fit.model <- function(trainingData) {
@@ -138,41 +162,49 @@ fit.model <- function(trainingData) {
           trControl = trainControl(method="oob"))
 }
 
-modelFit <- fit.model(training)
+training.train.modelFit <- fit.model(training.train)
 ```
-
-
-
-Measure Method's Prediction Error (Accuracy)
---------------------------------------------------------------------------------
 
 
 
 Let's check the accuracy of this model.
 
 ```{r}
-modelFit
+training.train.modelFit
 ```
 
 
 
-Notice that the Accuracy is quite high.  So, let's use it for prediction.
+Notice that the Accuracy is quite high.  Let's proceed with cross-validating the
+train & test subsets of the training data.
+
+```{r}
+confusionMatrix(predict(training.train.modelFit, newdata = training.test), 
+                factor(training.test$classe))
+```
 
 
 
-Prediction
+The Accuracy is relatively high as well.  So, let's use it in predicting the 
+"**classe**" variable for the real testing data, which we haven't touched yet.
+
+
+
+
+Submission of Predictions
 --------------------------------------------------------------------------------
 
 
 
-```{r}
-predictions <- predict.using.data(modelFit, testing)
-```
-
-
-Then, let's write the predictions for project submission.
+The **Predictions** directory was created to store the prediction file outputs. 
+We use the modelFit created above to predict the "**classe**" variable in our
+testing data.  The prediction file outputs were written as follows:
 
 ```{r}
+predict.using.data <- function(modelFit, data) {
+    as.character(predict(modelFit, newdata = data))
+}
+
 write.predictions <- function(x) {
     n <- length(x)
     for (i in 1:n) {
@@ -183,5 +215,17 @@ write.predictions <- function(x) {
     }
 }
 
+predictions <- predict.using.data(training.train.modelFit, 
+                                  testing)
 write.predictions(predictions)
 ```
+
+
+
+
+Conclusion
+-------------------------------------------------------------------------------
+
+**Random Forest** is an effective method for predicting the manner in which one 
+performs a particular activity using accelerometers, such as what were used in
+the Human Activity Recognition (HAR) project.

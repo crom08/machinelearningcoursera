@@ -1,11 +1,19 @@
 library(caret)
 library(randomForest)
 
+trainingData <- "./Data/Training Data/pml-training.csv"
+testingData  <- "./Data/Testing Data/pml-testing.csv"
+
 load.data <- function(file) {
     read.csv(file, row.names = 1)
 }
 
-remove.zero.covariates <- function(data) {
+cross.validation <- function(trainingData) {
+    createDataPartition(trainingData$class, p = 0.6, 
+                        list = FALSE)
+}
+
+remove.nearzero.covariates <- function(data) {
     near.zero <- nearZeroVar(data, saveMetrics = TRUE)
     data[, !near.zero$nzv]
 }
@@ -23,7 +31,7 @@ remove.missing.values <- function(data) {
 }
 
 clean.data <- function(data) {
-    data <- remove.zero.covariates(data)
+    data <- remove.nearzero.covariates(data)
     remove.missing.values(data)
 }
 
@@ -48,14 +56,17 @@ write.predictions <- function(x) {
     }
 }
 
-trainingData <- "./Data/Training Data/pml-training.csv"
-testingData <- "./Data/Testing Data/pml-testing.csv"
+training       <- load.data(trainingData)
+testing        <- load.data(testingData)
 
-training <- load.data(trainingData)
-testing  <- load.data(testingData)
-training <- clean.data(training)
-testing  <- clean.data(testing)
+training       <- clean.data(training)
 
-modelFit    <- fit.model(training)
-predictions <- predict.using.data(modelFit, testing)
+trainingIndex  <- cross.validation(training)
+training.train <- training[trainingIndex, ]
+training.test  <- training[-trainingIndex, ]
+
+training.train.modelFit <- fit.model(training.train)
+predictions             <- predict.using.data(training.train.modelFit, 
+                                              testing)
+
 write.predictions(predictions)
