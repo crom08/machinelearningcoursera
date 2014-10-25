@@ -1,8 +1,8 @@
 library(caret)
 library(randomForest)
 
-load.data <- function(data) {
-    read.csv(data, row.names = 1)
+load.data <- function(file) {
+    read.csv(file, row.names = 1)
 }
 
 remove.zero.covariates <- function(data) {
@@ -11,48 +11,30 @@ remove.zero.covariates <- function(data) {
 }
 
 remove.missing.values <- function(data) {
-    nav <- sapply(colnames(data), function(x) if(sum(is.na(data[, x])) > 0.8*nrow(data)){return(T)}else{return(F)})
-    data <- data[, !nav]
-#     mv <- sapply(colnames(data), function(col) {
-#         if (sum(is.na(data[, col]))/nrow(data) > 0.8) {
-#             return(TRUE)
-#         }
-#         else {
-#             return(FALSE)
-#         }
-#     })
-#     data[, !mv]
+    missing.values <- sapply(colnames(data), function(col) {
+        if (sum(is.na(data[, col]))/nrow(data) > 0.8) {
+            return(TRUE)
+        }
+        else {
+            return(FALSE)
+        }
+    })
+    data[, !missing.values]
 }
 
 clean.data <- function(data) {
     data <- remove.zero.covariates(data)
-    data <- remove.missing.values(data)
-    data
+    remove.missing.values(data)
 }
 
 fit.model <- function(trainingData) {
     set.seed(123)
-    train(classe ~., data = trainingData, 
+    train(classe ~ ., data = trainingData, 
           tuneGrid = data.frame(mtry=3),
-          trControl = trainControl(method="none"))
-    
-    
-#     random.forest <- train(trainingData[,-57],
-#                            trainingData$classe,
-#                            tuneGrid = data.frame(mtry=3),
-#                            trControl = trainControl(method="none")
-#     )
-#     random.forest
-    
-#     train(classe ~ ., data = trainingData,
-#           method = "rf",
-#           trControl = trainControl(
-#               method = "cv", number = 10))
+          trControl = trainControl(method="oob"))
 }
 
 predict.using.data <- function(modelFit, data) {
-#     as.character(predict(modelFit, data))
-    
     as.character(predict(modelFit, newdata = data))
 }
 
@@ -71,9 +53,9 @@ testingData <- "./Data/Testing Data/pml-testing.csv"
 
 training <- load.data(trainingData)
 testing  <- load.data(testingData)
-
 training <- clean.data(training)
-testing <- clean.data(testing)
-modelFit <- fit.model(training)
+testing  <- clean.data(testing)
+
+modelFit    <- fit.model(training)
 predictions <- predict.using.data(modelFit, testing)
 write.predictions(predictions)
